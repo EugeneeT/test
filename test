@@ -1,0 +1,140 @@
+import { useEffect, useState } from 'react'
+import React from 'react';
+import './App.css'
+
+import ShowTracker from './ShowTracker.jsx';
+
+function App() {
+  return (
+    <div className="App">
+      <ShowTracker />
+    </div>
+  );
+}
+
+export default App
+
+
+import { useState, useEffect } from 'react';
+
+const ShowTracker = () => {
+    const [selectedShow, setSelectedShow] = useState('');
+    const [showList, setShowList] = useState([]);
+    const [nextEpisode, setNextEpisode] = useState('');
+    const [bearerToken, setBearerToken] = useState('');
+    const [runningShows, setRunningShows] = useState([]);
+
+    // Use your TheTVDB API key
+    const apiKey = 'eeffd702-660c-4ace-84a5-79392bf8702b';
+
+    // Function to authenticate and obtain a bearer token
+    const authenticate = async () => {
+        try {
+            const response = await fetch('https://api4.thetvdb.com/v4/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    apikey: apiKey,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setBearerToken(data.data.token);
+            } else {
+                console.error('Authentication failed');
+            }
+        } catch (error) {
+            console.error('Error during authentication', error);
+        }
+    };
+
+    // Function to fetch a list of running shows
+    const fetchRunningShows = async () => {
+        try {
+            if (!bearerToken) return;
+
+            const response = await fetch('https://api4.thetvdb.com/v4/search/series', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${bearerToken}`,
+                },
+                body: JSON.stringify({
+                    status: 'running', // Filter for currently running shows
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setRunningShows(data.data);
+            } else {
+                console.error('Failed to fetch running shows');
+            }
+        } catch (error) {
+            console.error('Error during fetching running shows', error);
+        }
+    };
+
+    // Function to update the dropdown options with running shows
+    const setDropdownOptions = () => {
+        // For simplicity, let's assume runningShows is an array of show objects
+        // with each object having an id and a seriesName property
+        const dropdownOptions = runningShows.map((show) => (
+            <option key={show.id} value={show.id}>
+                {show.seriesName}
+            </option>
+
+        ));
+
+        return dropdownOptions;
+    };
+
+    // Handle the selection of a TV show from the dropdown
+    const handleShowSelect = (e) => {
+        const selectedShow = e.target.value;
+        setSelectedShow(selectedShow);
+    };
+
+    // Handle adding a show to the list
+    const handleAddShow = () => {
+        if (selectedShow && showList.length < 10 && !showList.includes(selectedShow)) {
+            setShowList([...showList, selectedShow]);
+        }
+    };
+
+    // Update the countdown timer for the next episode
+    useEffect(() => {
+        authenticate(); // Authenticate when the component mounts
+        fetchRunningShows(); // Fetch running shows when the component mounts
+    }, []);
+
+    useEffect(() => {
+        if (selectedShow && bearerToken) {
+            const intervalId = setInterval(fetchShowData, 1000);
+            return () => clearInterval(intervalId);
+        }
+    }, [selectedShow, bearerToken]);
+
+    return (
+        <div>
+            <h1>TV Show Tracker</h1>
+            <select onChange={handleShowSelect}>
+                {setDropdownOptions()}
+            </select>
+            <button onClick={handleAddShow}>Add Show</button>
+
+            <ul>
+                {showList.map((show) => (
+                    <li key={show}>
+                        {show} - Last Episode: {nextEpisode} - Countdown: { /* Add countdown logic here */}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+export default ShowTracker;
